@@ -43,9 +43,10 @@ def linearize_act(dialog_act):
     return linearized_act
             
 
-def process_data(data_dir):
+def process_data(data_dir, dialog_ids):
     """Process MultiWOZ dataset.
     @param  data_dir    directory that contains data.json and dialog_acts.json
+    @param  dialog_ids  set of dialog ids for either train/dev/test
 
     @return proc_data   a list of linearized act and utterance pairs
     """
@@ -60,7 +61,7 @@ def process_data(data_dir):
 
     # process data
     proc_data = []
-    prog_bar = tqdm(system_acts)
+    prog_bar = tqdm(dialog_ids)
     for dialog_id in prog_bar:
         pairs = construct_dialog_pairs(dialogs, system_acts, dialog_id)
         proc_data.extend(pairs)
@@ -115,21 +116,59 @@ def construct_utterance_pair(dialog, system_act, turn_idx):
     return linearized_act, utt
 
 
+
+def split_dialog_ids(data_dir):
+    """Split dialog ids into train, dev, and test set.
+    @param  data_dir    directory that contains data.json and dialog_acts.json
+
+    @return train_ids   dialog ids for train set
+    @return dev_ids     dialog ids for dev set
+    @return test_ids    dialog ids for test set
+    """
+    # load dialogs
+    with open(os.path.join(data_dir, 'data.json'), 'r') as json_file:
+        dialogs = json.load(json_file)
+    
+    dialog_ids = set(map(lambda x: os.path.splitext(x)[0], dialogs.keys()))
+    # dialog_ids = set(dialogs.keys())
+
+    with open('data/MULTIWOZ2 2/valListFile.json', 'r') as f:
+        dev_ids = set(map(lambda x: os.path.splitext(x)[0], f.read().splitlines()))
+    
+    with open('data/MULTIWOZ2 2/testListFile.json', 'r') as f:
+        test_ids = set(map(lambda x: os.path.splitext(x)[0], f.read().splitlines()))
+
+    assert not set.intersection(dev_ids, test_ids), "There shouldn't be overlapping dialog ids between test and dev"
+    
+    train_ids = dialog_ids.difference(set.union(dev_ids, test_ids))
+    return train_ids, dev_ids, test_ids
+    
+
+
 def main():
     # prepare raw dataset
     unzip_multiwoz('multiwoz/data/MultiWOZ_2.0.zip', 'data/')
     print("Unzip done.")
 
+    # split train/dev/test dialog ids
+    train_ids,dev_ids, test_ids = split_dialog_ids('data/MULTIWOZ2 2')
+
     # process data
-    proc_data = process_data('data/MULTIWOZ2 2')
+    train_proc_data = process_data('data/MULTIWOZ2 2', train_ids)
+    dev_proc_data = process_data('data/MULTIWOZ2 2', dev_ids)
+    test_proc_data = process_data('data/MULTIWOZ2 2', test_ids)
     print("Data process finished.")
 
-    # TODO: split train/dev/test in the future
-
     # save processed data
-    proc_data_dict = [{'act': act, 'utterance': utt} for act, utt in proc_data]
-    with open('data/processed.json', 'w') as json_file:
-        json.dump(proc_data_dict, json_file, indent=2)
+    train_proc_data_dict = [{'act': act, 'utterance': utt} for act, utt in train_proc_data]
+    dev_proc_data_dict = [{'act': act, 'utterance': utt} for act, utt in dev_proc_data]
+    test_proc_data_dict = [{'act': act, 'utterance': utt} for act, utt in test_proc_data]
+    with open('data/train_processed.json', 'w') as json_file:
+        json.dump(train_proc_data_dict, json_file, indent=2)
+    with open('data/dev_processed.json', 'w') as json_file:
+        json.dump(dev_proc_data_dict, json_file, indent=2)
+    with open('data/test_processed.json', 'w') as json_file:
+        json.dump(test_proc_data_dict, json_file, indent=2)
     print("Processed data is saved at data/processed.json")
     
 
