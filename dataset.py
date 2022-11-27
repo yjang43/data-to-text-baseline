@@ -4,18 +4,29 @@ from torch.utils.data import Dataset
 
 
 class MultiWOZDataset(Dataset):
-    def __init__(self, data_fp):
+    def __init__(self, data_fp, task_prefix='data to text: '):
+        """Initialize MultiWOZ dataset
+        @param  data_fp     file of act and utterance pairs e.g. data/xxx_precessed.json
+        """
         # load dataset
         with open(data_fp, 'r') as f:
             self.data = json.load(f)
 
-        self.task_prefix = 'data to text: '
+        self.task_prefix = task_prefix
 
 
     def __len__(self):
+        """Get the number of act and utterance pairs
+        @return number of act and utterance pairs
+        """
         return len(self.data)
     
     def __getitem__(self, idx):
+        """Get an act and utterance pair
+        @param  idx     index of the pair
+
+        @return item    a pair of prefixed linearized act and utterance
+        """
         item = {
             'act': self.task_prefix + self.data[idx]['act'],
             'utt': self.data[idx]['utterance']
@@ -28,9 +39,16 @@ class MultiWOZDataset(Dataset):
 class MultiWOZBatchGenerator:
 
     def __init__(self, tokenizer):
+        """Initialize collate function for MultiWOZ dataset
+        @param  tokenizer   tokenizer to tokenize a string
+        """
         self.tokenizer = tokenizer
     
     def __call__(self, batch):
+        """Generate batch
+        @param  batch   batch of act and utterance pair in string
+        @return batch   batch of src_ids, src_mask, tgt_ids, tgt in tensor
+        """
         acts = [item['act'] for item in batch]
         utts = [item['utt'] for item in batch]
 
