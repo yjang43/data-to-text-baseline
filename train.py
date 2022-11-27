@@ -33,7 +33,7 @@ def set_args():
         'num_accum': 1,
         'num_epoch': 5,
         'metric': 'bleu',    # only supports bleu for now
-        'device': 'cpu',
+        'device': 'cuda',
         'optimizer': 'Adam',
         'fp16': False,
         'ckpt_dir': 'ckpt/',
@@ -103,7 +103,7 @@ def evaluate_epoch(model, tokenizer, loader, grader, logger):
 
 def main():
     # init model and tokenizer from t5-base
-    model = T5ForConditionalGeneration.from_pretrained('t5-base')
+    model = T5ForConditionalGeneration.from_pretrained('t5-base').to(args.device)
     tokenizer = T5Tokenizer.from_pretrained('t5-base')
 
     # init optimizer
@@ -112,7 +112,7 @@ def main():
     # init dataloader
     batch_generator = MultiWOZBatchGenerator(tokenizer)
     train_dataset = MultiWOZDataset('data/train_processed.json')
-    train_dataloader = DataLoader(train_dataset, collate_fn=batch_generator, batch_size=args.batch_size)
+    train_dataloader = DataLoader(train_dataset, collate_fn=batch_generator, batch_size=args.batch_size, shuffle=True, num_workers=4)
     dev_dataset = MultiWOZDataset('data/dev_processed.json')
     dev_dataloader = DataLoader(dev_dataset, collate_fn=batch_generator, batch_size=args.batch_size)
 
@@ -130,8 +130,8 @@ def main():
         train_epoch(model, optimizer, train_dataloader, scaler, progbar, None)
         score = evaluate_epoch(model, tokenizer, dev_dataloader, grader, None)
 
-        ckpt_path = os.path.join(args.ckpt_dir, str(epoch))
-        model.save_pretrained(ckpt_path)
+        # ckpt_path = os.path.join(args.ckpt_dir, str(epoch))
+        # model.save_pretrained(ckpt_path)
 
         
         # rm_ckpt_path = os.path.join(args.ckpt_dir, str(epoch - args.ckpt_keep))
@@ -139,9 +139,9 @@ def main():
         #     os.remove(rm_ckpt_path)
         
 
-        if score > best_score:
-            best_ckpt_path = os.path.join(args.ckpt_dir, 'best')
-            model.save_pretrained(best_ckpt_path)
+        # if score > best_score:
+        #     best_ckpt_path = os.path.join(args.ckpt_dir, 'best')
+        #     model.save_pretrained(best_ckpt_path)
 
 
 
