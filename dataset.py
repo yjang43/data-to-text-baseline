@@ -72,6 +72,7 @@ class MultiWOZBatchGenerator:
         batch = {
             'src_ids': src['input_ids'],
             'src_mask': src['attention_mask'],
+            'src': acts,
             'tgt_ids': tgt['input_ids'],
             'tgt': utts
         }
