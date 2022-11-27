@@ -126,7 +126,7 @@ def set_args():
 
 
 
-def evaluate(model, tokenizer, loader, grader):
+def evaluate(model, tokenizer, loader, grader, progbar):
     """Evaluate model.
     @param  model       model to evaluate
     @param  tokenizer   tokenizer of the model
@@ -136,21 +136,38 @@ def evaluate(model, tokenizer, loader, grader):
     @return avg_score   average metric score
     """
     model.eval()
+    progbar.set_description("Evaluating...")
 
     accum_score = 0
     # dev loader
-    for batch in tqdm(loader):
+    if args.wandb:
+        sample_table = wandb.Table(columns=['act', 'pred_utt', 'gt_utt'])
+
+    for batch in loader:
         src_ids = batch['src_ids'].to(args.device)
+        src = batch['src']
         tgt = batch['tgt']
 
         with torch.no_grad():
-            pred_ids = model.generate(src_ids).detach()
+            pred_ids = model.generate(
+                    src_ids,
+                    num_beams=5, 
+                    no_repeat_ngram_size=2, 
+                    early_stopping=True
+                )
         
         pred = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
 
         # TODO: expand metrics e.g. Rouge, WER
         accum_score += grader.compute(predictions=pred, references=tgt)['bleu'] * len(pred)
     
+        if args.wandb:
+            for s, p, t in zip(src, pred, tgt):
+                sample_table.add_data(s, p, t)
+
+    if args.wandb:
+        wandb.log({f'samples_{str(progbar.n)}': sample_table})
+
     avg_score = accum_score / len(loader)
     return avg_score
 
@@ -203,7 +220,7 @@ def train(
             if args.evaluate:
                 if progbar.n % args.evaluate_every == 0:
 
-                    score = evaluate(model, eval_tokenizer, eval_loader, eval_grader)
+                    score = evaluate(model, eval_tokenizer, eval_loader, eval_grader, progbar)
                     model.train()
 
                     if args.wandb:
@@ -217,9 +234,9 @@ def train(
 
 
 def main():
-    # init model and tokenizer from t5-small
-    model = T5ForConditionalGeneration.from_pretrained('t5-small').to(args.device)
-    tokenizer = T5Tokenizer.from_pretrained('t5-small')
+    # init model and tokenizer from t5-base
+    model = T5ForConditionalGeneration.from_pretrained('t5-base').to(args.device)
+    tokenizer = T5Tokenizer.from_pretrained('t5-base')
 
     # init optimizer
     optimizer = getattr(torch.optim, args.optimizer)(model.parameters(), lr=args.lr)
