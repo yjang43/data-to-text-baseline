@@ -150,6 +150,7 @@ def evaluate(model, tokenizer, loader, grader, progbar):
         with torch.no_grad():
             pred_ids = model.generate(
                     src_ids,
+                    max_new_tokens=256,
                     num_beams=5, 
                     no_repeat_ngram_size=2, 
                     early_stopping=True
