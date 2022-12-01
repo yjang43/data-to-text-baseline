@@ -133,12 +133,11 @@ def evaluate(model, tokenizer, loader, grader, progbar):
     @param  loader      dev or test dataloader
     @param  grader      computes metric score e.g. bleu, rouge
 
-    @return avg_score   average metric score
+    @return score       metric score
     """
     model.eval()
     progbar.set_description("Evaluating...")
 
-    accum_score = 0
     # dev loader
     if args.wandb:
         sample_table = wandb.Table(columns=['act', 'pred_utt', 'gt_utt'])
@@ -159,7 +158,7 @@ def evaluate(model, tokenizer, loader, grader, progbar):
         pred = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
 
         # TODO: expand metrics e.g. Rouge, WER
-        accum_score += grader.compute(predictions=pred, references=tgt)['bleu'] * len(pred)
+        grader.add_batch(predictions=pred, references=tgt)
     
         if args.wandb:
             for s, p, t in zip(src, pred, tgt):
@@ -168,8 +167,8 @@ def evaluate(model, tokenizer, loader, grader, progbar):
     if args.wandb:
         wandb.log({f'samples_{str(progbar.n)}': sample_table})
 
-    avg_score = accum_score / len(loader)
-    return avg_score
+    score = grader.compute()['bleu']
+    return score
 
 
 def train(
